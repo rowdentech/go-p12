@@ -33,13 +33,16 @@ func main() {
 
 	certPathPtr := flag.String("cert", "", "Path to the primary certificate")
 	keyPathPtr := flag.String("key", "", "Path to the private key for the primary certificate")
-	flag.Var(&caPaths, "ca", "Path to a CA certificate to append to the p12 (can be passed multiple times)")
+	p12PathPtr := flag.String("p12", "", "Output path for the P12 you wish to create")
+	flag.Var(&caPaths, "ca", "(Optional) Path to a CA certificate to append to the p12 (can be passed multiple times)")
 
 	flag.Parse()
 
-	p12Path := flag.Arg(0)
-	if p12Path == "" {
-		log.Fatalf("Please set the desired p12 output path as the first argument")
+	if *certPathPtr == "" || *keyPathPtr == "" || *p12PathPtr == "" {
+		fmt.Println("go-p12 helps create P12 keystore files for use with Firefox, Windows, Java applications")
+		fmt.Println("Usage: go-p12 -p12 <file.p12> -cert <cert.crt> -key <key.pem> -ca <root.crt>")
+		flag.PrintDefaults()
+		os.Exit(1)
 	}
 
 	x509Cert, err := decodeCertificate(*certPathPtr)
@@ -69,7 +72,7 @@ func main() {
 		log.Fatalf("failed to encode p12 data: " + err.Error())
 	}
 
-	err = ioutil.WriteFile(p12Path, pfxData, 0644)
+	err = ioutil.WriteFile(*p12PathPtr, pfxData, 0644)
 }
 
 func decodePrivateKey(path string) (crypto.PrivateKey, error) {
