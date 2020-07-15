@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"crypto"
 	"crypto/rand"
@@ -16,11 +17,23 @@ import (
 	"software.sslmate.com/src/go-pkcs12"
 )
 
+type arrayFlag []string
+
+func (i *arrayFlag) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+func (i *arrayFlag) String() string {
+	return strings.Join(*i, ", ")
+}
+
+var caPaths arrayFlag
+
 func main() {
 
-	caPathPtr := flag.String("ca", "", "Path to the CA certificate")
-	certPathPtr := flag.String("cert", "", "Path to the client certificate")
-	keyPathPtr := flag.String("key", "", "Path to the private key for the client certificate")
+	certPathPtr := flag.String("cert", "", "Path to the primary certificate")
+	keyPathPtr := flag.String("key", "", "Path to the private key for the primary certificate")
+	flag.Var(&caPaths, "ca", "Path to a CA certificate to append to the p12 (can be passed multiple times)")
 
 	flag.Parse()
 
@@ -29,31 +42,29 @@ func main() {
 		log.Fatalf("Please set the desired p12 output path as the first argument")
 	}
 
-	fmt.Println("ca:", *caPathPtr)
-	fmt.Println("cert:", *certPathPtr)
-	fmt.Println("key:", *keyPathPtr)
-
-	caBytes, err := ioutil.ReadFile(*caPathPtr)
+	x509Cert, err := decodeCertificate(*certPathPtr)
 	if err != nil {
-		log.Fatalf("failed to read CA file: " + err.Error())
+		log.Fatalf("failed to decode certificate: " + err.Error())
 	}
-
-	caPem, _ := pem.Decode(caBytes)
-	if caPem == nil {
-		log.Fatalf("failed to parse CA PEM data")
-	}
-
-	x509CA, err := x509.ParseCertificate(caPem.Bytes)
-	if err != nil {
-		log.Fatalf("failed to parse CA certificate: " + err.Error())
-	}
-
 	x509Key, err := decodePrivateKey(*keyPathPtr)
+	if err != nil {
+		log.Fatalf("failed to decode private key: " + err.Error())
+	}
+
+	x509CAs := []*x509.Certificate{}
+
+	for _, path := range caPaths {
+		cert, err := decodeCertificate(path)
+		if err != nil {
+			log.Fatalf("failed to decode CA certificate: " + err.Error())
+		}
+		x509CAs = append(x509CAs, cert)
+	}
 
 	fmt.Printf("Please enter the new password for the P12 file: ")
-		password, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
+	password, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
 
-	pfxData, err := pkcs12.Encode(rand.Reader, x509Key, x509CA, nil, string(password))
+	pfxData, err := pkcs12.Encode(rand.Reader, x509Key, x509Cert, x509CAs, string(password))
 	if err != nil {
 		log.Fatalf("failed to encode p12 data: " + err.Error())
 	}
@@ -66,7 +77,7 @@ func decodePrivateKey(path string) (crypto.PrivateKey, error) {
 	keyBytes, err := ioutil.ReadFile(path)
 
 	if err != nil {
-		log.Fatalf("failed to read private key file:" + err.Error())
+		return nil, fmt.Errorf("failed to read key file: %w", err)
 	}
 
 	keyPem, _ := pem.Decode(keyBytes)
@@ -74,15 +85,15 @@ func decodePrivateKey(path string) (crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("Failed to parse key PEM data")
 	}
 
-	key, err := decodeKeyBytes(keyPem)
+	key, err := decryptKeyBytes(keyPem)
 	if err != nil {
-		log.Fatalf("failed to decode private key file:" + err.Error())
+		return nil, err
 	}
 
 	return key, nil
 }
 
-func decodeKeyBytes(key *pem.Block) (crypto.PrivateKey, error) {
+func decryptKeyBytes(key *pem.Block) (crypto.PrivateKey, error) {
 
 	if key.Type == "RSA PRIVATE KEY" {
 		fmt.Printf("Please enter the existing password for the private key: ")
@@ -91,7 +102,7 @@ func decodeKeyBytes(key *pem.Block) (crypto.PrivateKey, error) {
 
 		decryptedBytes, err := x509.DecryptPEMBlock(key, []byte(password))
 		if err != nil {
-			log.Fatalf("Could not decrypt private key: " + err.Error())
+			return nil, fmt.Errorf("failed to decrypt private key: %w", err)
 		}
 
 		key.Bytes = decryptedBytes
@@ -100,4 +111,24 @@ func decodeKeyBytes(key *pem.Block) (crypto.PrivateKey, error) {
 	}
 
 	return nil, fmt.Errorf("Unknown key type: " + key.Type)
+}
+
+func decodeCertificate(path string) (*x509.Certificate, error) {
+
+	certBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate file: %w", err)
+	}
+
+	certPem, _ := pem.Decode(certBytes)
+	if certPem == nil {
+		return nil, fmt.Errorf("failed to parse certificate PEM data")
+	}
+
+	x509Cert, err := x509.ParseCertificate(certPem.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate body: %w", err)
+	}
+
+	return x509Cert, nil
 }
