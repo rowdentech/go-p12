@@ -97,18 +97,20 @@ func decodePrivateKey(path string) (crypto.PrivateKey, error) {
 }
 
 func decryptKeyBytes(key *pem.Block) (crypto.PrivateKey, error) {
-
 	if key.Type == "RSA PRIVATE KEY" {
-		fmt.Printf("Please enter the existing password for the private key: ")
-		password, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Println("")
 
-		decryptedBytes, err := x509.DecryptPEMBlock(key, []byte(password))
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt private key: %w", err)
+		if x509.IsEncryptedPEMBlock(key) {
+			fmt.Printf("Please enter the existing password for the private key: ")
+			password, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
+			fmt.Println("")
+
+			decryptedBytes, err := x509.DecryptPEMBlock(key, []byte(password))
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt private key: %w", err)
+			}
+
+			key.Bytes = decryptedBytes
 		}
-
-		key.Bytes = decryptedBytes
 
 		return x509.ParsePKCS1PrivateKey(key.Bytes)
 	}
