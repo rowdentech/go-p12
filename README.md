@@ -48,3 +48,7 @@ go-p12 -p12 identitystore.p12 -cert myserver.crt -key serverprivatekey.pem -ca i
 ```
 
 This will create `identitystore.p12` containing the server certificate and key, but also the intermediate and root certificates that have signed the server cert. This file is then suitable for using as an "identity store" in Java applications to provide HTTPS for `myserver`.
+
+## Known Issues
+
+At the moment the upstream `go-pkcs12` doesn't support adding "friendly names" to entries in the store. This doesn't seems to affect Firefox or Windows which will both happily install the certificates, but I've had issues with some Java applications just refusing to see any contents.
