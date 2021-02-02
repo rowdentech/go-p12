@@ -99,9 +99,14 @@ func printUsageAndExit() {
 }
 
 func promptForPassword() string {
-	fmt.Printf("Please enter a new password for the P12 file: ")
-	password, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
-	return string(password)
+	password := os.Getenv("P12_PASS")
+	if password == "" {
+		fmt.Printf("Please enter a new password for the P12 file: ")
+		terminalPass, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
+		password = string(terminalPass)
+	}
+
+	return password
 }
 
 func decodePrivateKey(path string) (crypto.PrivateKey, error) {
