@@ -91,9 +91,11 @@ func main() {
 }
 
 func printUsageAndExit() {
-	fmt.Println("go-p12 helps create P12 keystore files for use with Firefox, Windows, Java applications\n")
+	fmt.Println("go-p12 helps create P12 keystore files for use with Firefox, Windows, Java applications")
+	fmt.Println("")
 	fmt.Println("Identity store with a private key: go-p12 -p12 <file.p12> -cert <cert.crt> -key <key.pem> -ca <root.crt>")
-	fmt.Println("Trust store with only CA certs:    go-p12 -p12 <file.p12> -ca <root.crt> -ca <intermediate.crt>\n")
+	fmt.Println("Trust store with only CA certs:    go-p12 -p12 <file.p12> -ca <root.crt> -ca <intermediate.crt>")
+	fmt.Println("")
 	flag.PrintDefaults()
 	os.Exit(1)
 }
