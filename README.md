@@ -35,6 +35,16 @@ Usage: go-p12 -p12 <file.p12> -cert <cert.crt> -key <key.pem> -ca <root.crt>
         Output path for the P12 you wish to create
 ```
 
+P12 files have to be protected by a password. `go-p12` will prompt you interactively to specify one. If you want to set
+a password automatically for scripting etc, use the `P12_PASS` environmental variable:
+```
+$ENV:P12_PASS = "hello"
+go-p12.exe ......
+```
+```
+P12_PASS=hello ./go-12 ....
+```
+
 ### Examples
 
 ```
@@ -54,7 +64,3 @@ go-p12 -p12 truststore.p12 -ca intermediate.crt -ca root-ca.crt
 ```
 
 This will create `truststore.p12` containing only the intermediate and root certificates. This file is then suitable for using as "trust store" in Java applications  to verify certificates provided by other clients or servers.
-
-## Known Issues
-
-At the moment the upstream `go-pkcs12` doesn't support adding "friendly names" to entries in the store. This doesn't seems to affect Firefox or Windows which will both happily install the certificates, but I've had issues with some Java applications just refusing to see any contents.
